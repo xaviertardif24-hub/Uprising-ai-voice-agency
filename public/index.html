@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uprising AI — Agency Platform</title>
+    <meta name="description" content="Plateforme de gestion d'agents vocaux IA pour agences">
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="minimal-theme">
+    <!-- Top Bar -->
+    <header class="top-bar">
+        <div class="top-bar-left">
+            <button class="hamburger-btn" id="sidebar-toggle" aria-label="Menu Mobile">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="agency-logo">
+                <i class="fas fa-bolt"></i> <span>VOICE AGENCY</span>
+            </div>
+        </div>
+
+        <div class="top-bar-right">
+            <div class="client-selector-container">
+                <select id="top-client-selector" class="client-select">
+                    <option value="all">Tous les Clients</option>
+                    <option value="garage-uprising">Garage Uprising</option>
+                    <option value="dentist-plus">Dentiste Plus</option>
+                </select>
+            </div>
+            <div class="user-profile">
+                <div class="online-dot"></div>
+                <i class="fas fa-user-circle"></i>
+            </div>
+        </div>
+    </header>
+
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar hidden" id="app-sidebar">
+            <nav class="nav-links">
+                <li class="nav-section-title">OPÉRATIONS</li>
+                <li onclick="showSection('dashboard')" id="nav-dashboard" class="active">
+                    <i class="fas fa-chart-line"></i><span>Dashboard</span>
+                </li>
+                <li onclick="showSection('leads')" id="nav-leads">
+                    <i class="fas fa-users"></i> <span>Leads CRM</span>
+                </li>
+                <li onclick="showSection('appels')" id="nav-appels">
+                    <i class="fas fa-phone-alt"></i> <span>Journal d'appels</span>
+                </li>
+                <li onclick="showSection('scheduling')" id="nav-scheduling">
+                    <i class="fas fa-calendar-alt"></i> <span>Planification</span>
+                </li>
+
+                <li class="nav-section-title">CONFIGURATION</li>
+                <li onclick="showSection('agents')" id="nav-agents">
+                    <i class="fas fa-robot"></i> <span>Mes Agents</span>
+                </li>
+                <li onclick="showSection('agent-builder')" id="nav-agent-builder">
+                    <i class="fas fa-magic"></i> <span>Studio d'Agents <span class="badge-new">NEW</span></span>
+                </li>
+                <li onclick="showSection('changelog')" id="nav-changelog">
+                    <i class="fas fa-rocket"></i><span>Nouveautés</span>
+                </li>
+                <li onclick="showSection('settings')" id="nav-settings">
+                    <i class="fas fa-cog"></i> <span>Paramètres</span>
+                </li>
+            </nav>
+            <div class="sidebar-footer">
+                <span id="connection-status">● Système en ligne</span>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content" id="main-content">
+
+            <!-- ═══════ PAGE: DASHBOARD ═══════ -->
+            <section id="page-dashboard" class="app-section active">
+                <div class="section-header">
+                    <div>
+                        <h1>Dashboard</h1>
+                        <p class="text-muted">Vue d'ensemble de votre activité</p>
+                    </div>
+                    <div id="current-agent-badge" class="agent-badge">Agent: ...</div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-chart-bar"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="stat-total-val">0</div>
+                            <div class="stat-label">Total Leads</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="stat-today-val">0</div>
+                            <div class="stat-label">Aujourd'hui</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-calendar-week"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="stat-week-val">0</div>
+                            <div class="stat-label">Cette semaine</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-robot"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="stat-agents-val">0</div>
+                            <div class="stat-label">Agents Actifs</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="glass-card">
+                        <h3>⚡ Actions Rapides</h3>
+                        <div class="quick-actions">
+                            <div class="action-card" onclick="showSection('agent-builder')">
+                                <div class="action-icon"><i class="fas fa-plus"></i></div>
+                                <div class="action-info">
+                                    <h3>Créer un Agent</h3>
+                                    <p>Configurer un nouvel agent vocal</p>
+                                </div>
+                            </div>
+                            <div class="action-card" onclick="showSection('leads')">
+                                <div class="action-icon"><i class="fas fa-list-ul"></i></div>
+                                <div class="action-info">
+                                    <h3>Voir les Leads</h3>
+                                    <p>Consulter tous les prospects</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card">
+                        <h3>📞 Test Rapide</h3>
+                        <div class="form-group">
+                            <label>Numéro à appeler</label>
+                            <input type="tel" id="phone-number" placeholder="+1438...">
+                        </div>
+                        <button id="call-btn" class="btn primary full-width">
+                            <i class="fas fa-phone"></i> Lancer l'appel test
+                        </button>
+                        <div id="call-feedback" class="feedback"></div>
+                    </div>
+                </div>
+
+                <div class="glass-card activity-section">
+                    <h3><i class="fas fa-history"></i> Activité récente</h3>
+                    <div id="dashboard-activity-list" class="activity-list">
+                        <p class="text-muted">Chargement de l'activité...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══════ PAGE: LEADS CRM ═══════ -->
+            <section id="page-leads" class="app-section">
+                <div class="section-header">
+                    <div>
+                        <h1>Leads CRM</h1>
+                        <p class="text-muted">Suivi de tous vos prospects</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn ghost btn-small" id="export-csv-btn">📊 Exporter CSV</button>
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <div class="table-header-row">
+                        <div class="search-container">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="leads-search" placeholder="Rechercher...">
+                        </div>
+                        <div class="system-status">
+                            <span class="status-dot online"></span> CPU: <span id="cpu-load">Low</span>
+                            <span class="status-dot online" style="margin-left: 10px;"></span> DB: <span
+                                id="db-status">Active</span>
+                        </div>
+                    </div>
+
+                    <div class="pipeline-summary">
+                        <div class="pipeline-stage" data-stage="Nouveau">
+                            <span class="stage-count" id="count-nouveau">0</span>
+                            <span class="stage-label">Nouveau</span>
+                        </div>
+                        <div class="pipeline-arrow"><i class="fas fa-chevron-right"></i></div>
+                        <div class="pipeline-stage" data-stage="Qualifié">
+                            <span class="stage-count" id="count-qualifie">0</span>
+                            <span class="stage-label">Qualifié</span>
+                        </div>
+                        <div class="pipeline-arrow"><i class="fas fa-chevron-right"></i></div>
+                        <div class="pipeline-stage" data-stage="RDV">
+                            <span class="stage-count" id="count-rdv">0</span>
+                            <span class="stage-label">RDV Pris</span>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table id="leads-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Client</th>
+                                    <th>Téléphone</th>
+                                    <th>Projet</th>
+                                    <th>Pipeline</th>
+                                    <th style="width: 100px;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leads-body">
+                                <!-- JS Injection -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="leads-empty" class="empty-state-text">Aucun lead trouvé.</div>
+                </div>
+            </section>
+
+            <!-- ═══════ PAGE: APPELS ═══════ -->
+            <section id="page-appels" class="app-section">
+                <div class="section-header">
+                    <h1>Journal d'appels</h1>
+                    <p class="text-muted">Historique des communications agents-clients</p>
+                </div>
+                <div class="glass-card">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Agent</th>
+                                    <th>Client</th>
+                                    <th>Durée</th>
+                                    <th>Statut</th>
+                                    <th>Détails</th>
+                                </tr>
+                            </thead>
+                            <tbody id="calls-list">
+                                <!-- JS Injection -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══════ PAGE: SCHEDULING ═══════ -->
+            <section id="page-scheduling" class="app-section">
+                <div class="section-header">
+                    <h1>Planification</h1>
+                    <p class="text-muted">Gérer les rendez-vous et le calendrier</p>
+                </div>
+                <div class="glass-card centered-content">
+                    <i class="fas fa-calendar-check large-icon"></i>
+                    <p>Le module de synchronisation avec Google Calendar est opérationnel.</p>
+                    <button class="btn primary" onclick="showSection('leads')">Planifier depuis un lead</button>
+                </div>
+            </section>
+
+            <!-- ═══════ PAGE: AGENTS ═══════ -->
+            <section id="page-agents" class="app-section">
+                <div class="section-header">
+                    <div>
+                        <h1>Mes Agents IA</h1>
+                        <p class="text-muted">Configurez vos agents vocaux par client</p>
+                    </div>
+                    <button class="btn primary" onclick="showSection('agent-builder')">
+                        <i class="fas fa-plus"></i> Nouvel Agent
+                    </button>
+                </div>
+                <div class="agents-grid" id="agents-grid">
+                    <!-- JS Injection -->
+                </div>
+
+                <!-- Agent Detail Configuration -->
+                <div class="glass-card" id="agent-config-panel" style="display: none; margin-top: 2rem;">
+                    <div class="config-header">
+                        <h2 id="active-agent-name">Configuration</h2>
+                        <button class="btn danger btn-small" id="delete-agent-btn">Supprimer l'agent</button>
+                    </div>
+                    <div class="config-grid">
+                        <div class="form-group">
+                            <label>📧 Email de notification</label>
+                            <input type="email" id="owner-email">
+                        </div>
+                        <div class="form-group">
+                            <label>📱 Téléphone de redirection</label>
+                            <input type="tel" id="owner-phone">
+                        </div>
+                        <div class="form-group">
+                            <label>🕒 Début dispo.</label>
+                            <input type="time" id="avail-start">
+                        </div>
+                        <div class="form-group">
+                            <label>🕒 Fin dispo.</label>
+                            <input type="time" id="avail-end">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>📝 Script (Prompt Système)</label>
+                        <textarea id="prompt-content" rows="10"></textarea>
+                    </div>
+                    <div class="webhook-section">
+                        <label>🔗 URL de Webhook Bland AI</label>
+                        <div class="input-row">
+                            <input type="text" id="webhook-url-display" readonly>
+                            <button id="copy-webhook-btn" class="btn ghost btn-small">Copier</button>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button id="save-prompt-btn" class="btn primary">💾 Sauvegarder la configuration</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══════ PAGE: STUDIO (BUILDER) ═══════ -->
+            <section id="page-agent-builder" class="app-section">
+                <div class="section-header">
+                    <h1>Studio d'Agents</h1>
+                    <p class="text-muted">Créez un agent personnalisé en quelques secondes</p>
+                </div>
+
+                <div class="wizard-container glass-card">
+                    <div class="wizard-progress">
+                        <div class="progress-step active" id="step-dot-1"><span>1</span><label>Analyse</label></div>
+                        <div class="progress-line"></div>
+                        <div class="progress-step" id="step-dot-2"><span>2</span><label>Données</label></div>
+                        <div class="progress-line"></div>
+                        <div class="progress-step" id="step-dot-3"><span>3</span><label>Activation</label></div>
+                    </div>
+
+                    <!-- Step 1: URL Input -->
+                    <div class="wizard-step active" id="wizard-step-1">
+                        <div class="step-content centered">
+                            <i class="fas fa-search-dollar large-icon"></i>
+                            <h2>Analyse de Site Web</h2>
+                            <p>Entrez l'URL de l'entreprise pour extraire automatiquement les informations.</p>
+                            <div class="form-group full-width">
+                                <input type="url" id="scrape-url" placeholder="https://www.exemple.com"
+                                    class="large-input">
+                            </div>
+                            <button class="btn primary btn-large" id="start-scrape-btn">
+                                <i class="fas fa-wand-magic-sparkles"></i> Lancer l'analyse
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Edit Scraped Data -->
+                    <div class="wizard-step" id="wizard-step-2">
+                        <div class="step-content">
+                            <h2>Vérification des informations</h2>
+                            <p class="text-muted">Ajustez les détails récupérés pour plus de précision.</p>
+
+                            <div class="config-grid">
+                                <div class="form-group full-width">
+                                    <label>Nom de l'entreprise</label>
+                                    <input type="text" id="wizard-company-name">
+                                </div>
+                                <div class="form-group full-width">
+                                    <label>Description (Bio AI)</label>
+                                    <textarea id="wizard-company-desc" rows="3"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="data-lists">
+                                <div class="data-list-box">
+                                    <label>🛠️ Services détectés</label>
+                                    <div id="wizard-services-list" class="tag-list-editable"></div>
+                                    <div class="add-tag-box">
+                                        <input type="text" id="new-service-input" placeholder="Ajouter un service...">
+                                        <button class="btn ghost btn-small" id="add-service-btn"><i
+                                                class="fas fa-plus"></i></button>
+                                    </div>
+                                </div>
+                                <div class="data-list-box">
+                                    <label>❓ FAQ extraites</label>
+                                    <div id="wizard-faq-list" class="faq-list-editable"></div>
+                                    <button class="btn ghost btn-small full-width" id="add-faq-btn">
+                                        <i class="fas fa-plus"></i> Ajouter une question
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="wizard-actions">
+                                <button class="btn ghost" onclick="updateWizardStep(1)">Retour</button>
+                                <button class="btn primary" onclick="updateWizardStep(3)">Suivant</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Prompt & Activation -->
+                    <div class="wizard-step" id="wizard-step-3">
+                        <div class="step-content">
+                            <h2>Configuration de l'Agent</h2>
+                            <p class="text-muted">Finalisez le comportement de votre futur membre d'équipe.</p>
+
+                            <div class="prompt-preview-box">
+                                <label>Script Généré Automatiquement</label>
+                                <textarea id="wizard-prompt-preview" rows="12"></textarea>
+                            </div>
+
+                            <div class="config-grid">
+                                <div class="form-group">
+                                    <label>ID de l'Agent (Slug)</label>
+                                    <input type="text" id="wizard-agent-id" placeholder="nom-entreprise">
+                                </div>
+                                <div class="form-group">
+                                    <label>Voix de l'Agent</label>
+                                    <select id="wizard-voice-select">
+                                        <option value="GlFfG24S1tGjIdW8p7pX">Sophie (Nicole - Douce, FR)</option>
+                                        <option value="CwhSeZ9rrtfL5o1UuunM">Thomas (Antoine - Posé, FR)</option>
+                                        <option value="onwK4e9ZLuTAKqD09mQs">Camille (Nicolas - Naturelle, FR)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="wizard-actions">
+                                <button class="btn ghost" onclick="updateWizardStep(2)">Retour</button>
+                                <button class="btn success btn-large" id="finish-wizard-btn">
+                                    <i class="fas fa-check-circle"></i> Créer et Activer l'Agent
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══════ PAGE: CHANGELOG ═══════ -->
+            <section id="page-changelog" class="app-section">
+                <div class="section-header">
+                    <h1>Journal des modifications</h1>
+                    <p class="text-muted">Nouveautés et mises à jour de la plateforme</p>
+                </div>
+                <div id="changelog-list" class="changelog-container">
+                    <!-- JS Injection -->
+                </div>
+            </section>
+
+            <!-- ═══════ PAGE: SETTINGS ═══════ -->
+            <section id="page-settings" class="app-section">
+                <div class="section-header">
+                    <h1>Paramètres Généraux</h1>
+                    <p class="text-muted">Gérez l'identité de votre agence et vos connexions API</p>
+                </div>
+
+                <div class="settings-grid">
+                    <!-- Profile Card -->
+                    <div class="glass-card">
+                        <h3><i class="fas fa-building"></i> Profil de l'Agence</h3>
+                        <div class="form-group mt-1">
+                            <label>Nom de l'Agence</label>
+                            <input type="text" id="settings-agency-name" value="Voice Agency">
+                        </div>
+                        <div class="form-group">
+                            <label>Email de Contact</label>
+                            <input type="email" id="settings-agency-email" value="contact@voiceagency.ai">
+                        </div>
+                        <div class="form-group">
+                            <label>Site Web</label>
+                            <input type="url" id="settings-agency-web" value="https://voiceagency.ai">
+                        </div>
+                        <button class="btn primary full-width mt-1">Enregistrer le Profil</button>
+                    </div>
+
+                    <!-- Connections Status Card -->
+                    <div class="glass-card">
+                        <h3><i class="fas fa-plug"></i> État des Connexions</h3>
+                        <div class="connection-list mt-1">
+                            <div class="connection-item">
+                                <div class="conn-info">
+                                    <span class="conn-name">Bland AI</span>
+                                    <span class="conn-status" id="status-bland">Vérification...</span>
+                                </div>
+                                <div class="conn-dot" id="dot-bland"></div>
+                            </div>
+                            <div class="connection-item">
+                                <div class="conn-info">
+                                    <span class="conn-name">Google Calendar</span>
+                                    <span class="conn-status" id="status-google">Vérification...</span>
+                                </div>
+                                <div class="conn-dot" id="dot-google"></div>
+                            </div>
+                            <div class="connection-item">
+                                <div class="conn-info">
+                                    <span class="conn-name">CRM Twenty</span>
+                                    <span class="conn-status" id="status-twenty">Configuré</span>
+                                </div>
+                                <div class="conn-dot active"></div>
+                            </div>
+                        </div>
+                        <div class="system-meta mt-2">
+                            <p class="text-muted small">Node Version: <span id="sys-node">...</span></p>
+                            <p class="text-muted small">Server Uptime: <span id="sys-uptime">...</span></p>
+                        </div>
+                    </div>
+
+                    <!-- Appearance Card -->
+                    <div class="glass-card">
+                        <h3><i class="fas fa-paint-brush"></i> Apparence</h3>
+                        <p class="text-muted small">Personnalisez votre interface</p>
+                        <div class="theme-selector mt-1">
+                            <div class="theme-option active" data-theme="light">
+                                <div class="theme-preview light"></div>
+                                <span>Clair</span>
+                            </div>
+                            <div class="theme-option" data-theme="dark">
+                                <div class="theme-preview dark"></div>
+                                <span>Sombre (Bientôt)</span>
+                            </div>
+                        </div>
+                        <div class="form-group mt-2">
+                            <label>Couleur d'accent</label>
+                            <div class="color-picker-mock">
+                                <div class="color-dot active" style="background: #6366f1;"></div>
+                                <div class="color-dot" style="background: #ef4444;"></div>
+                                <div class="color-dot" style="background: #10b981;"></div>
+                                <div class="color-dot" style="background: #f59e0b;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal Lead Details -->
+    <div id="lead-modal" class="modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-card glass-card">
+            <button class="close-modal" id="close-modal">&times;</button>
+            <h2 id="detail-name">Nom du Lead</h2>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <label>Téléphone</label>
+                    <p id="detail-phone">...</p>
+                </div>
+                <div class="detail-item">
+                    <label>Email</label>
+                    <p id="detail-email">...</p>
+                </div>
+                <div class="detail-item full-width">
+                    <label>Projet</label>
+                    <p id="detail-project">...</p>
+                </div>
+                <div class="detail-item full-width">
+                    <label>Notes de l'appel</label>
+                    <div id="detail-notes" class="notes-box"></div>
+                </div>
+                <div class="detail-item full-width">
+                    <label>Rendez-vous détecté</label>
+                    <p id="detail-appt">...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn primary full-width" id="modal-book-btn">📅 Envoyer au Calendrier</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+    <!-- Scripts -->
+    <script src="app.js"></script>
+</body>
+
+</html>
