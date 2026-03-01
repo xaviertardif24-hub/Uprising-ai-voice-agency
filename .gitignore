@@ -1,0 +1,6 @@
+node_modules/
+.env
+*.log
+test_output.txt
+Archives/
+Archives_V4_FullReset/
