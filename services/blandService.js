@@ -52,8 +52,8 @@ const initiateCall = async (phoneNumber, customVars = {}) => {
     const env = config.activeEnv;
     const prompt = getActivePrompt();
 
-    // Determine a dynamic first sentence based on the business name
-    const firstSentence = `Bonjour ! Vous êtes bien chez ${env.name}. Comment puis-je vous aider ?`;
+    // Determine a dynamic first sentence based on the business name (Ultra-natural greeting)
+    const firstSentence = `Oui bonjour, ${env.name}, c'est ${env.prompt_template.match(/Tu es (\w+) /)?.[1] || 'la réception'} à l'appareil.`;
 
     try {
         // Build webhook URL for post-call data
@@ -67,10 +67,10 @@ const initiateCall = async (phoneNumber, customVars = {}) => {
             language: 'fr',
             model: 'enhanced',
             elevenlabs_api_key: config.bland.elevenlabsApiKey,
-            interruption_threshold: 120,
+            interruption_threshold: 220, // Human-like reaction time (avoid cutting off on background noise)
             wait_for_greeting: true,
             first_sentence: firstSentence,
-            temperature: 0.8,
+            temperature: 0.72, // Balanced creativity and strict adherence to role
             max_duration: 10,
             record: true,
             webhook: webhookUrl,
