@@ -104,10 +104,24 @@ document.addEventListener('DOMContentLoaded', () => {
             updateCurrentAgentBadge();
             fetchLeads();
             fetchAnalytics();
+            populateTopBarSelector();
         } catch (err) {
             console.error('Failed to fetch config', err);
             showToast('Erreur de chargement', 'error');
         }
+    }
+
+    function populateTopBarSelector() {
+        if (!clientSelector || !currentConfig) return;
+        // Keep the "All" option then add one per agent
+        clientSelector.innerHTML = '<option value="all">Tous les Agents</option>';
+        Object.values(currentConfig.environments).forEach(env => {
+            const opt = document.createElement('option');
+            opt.value = env.id;
+            opt.textContent = env.name;
+            if (env.id === activeEnvId) opt.selected = true;
+            clientSelector.appendChild(opt);
+        });
     }
 
     window.fetchLeads = async function () {
@@ -158,11 +172,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const statsRes = await fetch('/api/dashboard/analytics');
             const result = await statsRes.json();
             if (statsRes.ok) {
-                const stats = result.data;
-                document.getElementById('stat-total-val').textContent = stats.totalLeads || 0;
-                document.getElementById('stat-today-val').textContent = stats.todayLeads || 0;
-                document.getElementById('stat-week-val').textContent = stats.thisWeek || 0;
-                document.getElementById('stat-agents-val').textContent = stats.activeAgents || 0;
+                // The API returns the stats object directly (no .data wrapper)
+                document.getElementById('stat-total-val').textContent = result.totalLeads || 0;
+                document.getElementById('stat-today-val').textContent = result.todayLeads || 0;
+                document.getElementById('stat-week-val').textContent = result.thisWeek || 0;
+                // Count agents from currentConfig
+                const agentCount = currentConfig ? Object.keys(currentConfig.environments || {}).length : 0;
+                document.getElementById('stat-agents-val').textContent = agentCount;
             }
         } catch (err) {
             console.error('Analytics error:', err);
@@ -329,11 +345,32 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
             const statusClass = lead.status === 'RDV' ? 'success' : (lead.status === 'Qualifié' ? 'accent' : 'muted');
 
+            // Quality score badge
+            const score = computeCallQualityScore(lead);
+            const scoreColor = score >= 80 ? 'var(--success)' : score >= 50 ? 'var(--warning, #f59e0b)' : 'var(--error)';
+            const scoreBadge = `<span style="font-size:0.7rem;font-weight:800;color:${scoreColor};" title="Score qualité appel">${score}%</span>`;
+
+            // Recording icon
+            const recIcon = lead.recording_url
+                ? `<i class="fas fa-microphone" style="color:var(--accent);font-size:0.7rem;" title="Enregistrement disponible"></i>`
+                : '';
+
+            const rdvDisplay = (lead.date && lead.date.trim())
+                ? `<span style="font-size:0.75rem;color:var(--success);font-weight:600;">${lead.date}${lead.time ? ' ' + lead.time : ''}</span>`
+                : `<span style="font-size:0.75rem;color:var(--text-muted);">—</span>`;
+
+            const notesDisplay = lead.details && lead.details.trim() && lead.details !== 'Non spécifié'
+                ? `<span style="font-size:0.72rem;color:var(--text-secondary);" title="${lead.details.replace(/"/g, '&quot;')}">${lead.details.substring(0, 40)}${lead.details.length > 40 ? '…' : ''}</span>`
+                : `<span style="font-size:0.72rem;color:var(--text-muted);">—</span>`;
+
             tr.innerHTML = `
                 <td><small>${formattedDate}</small></td>
-                <td><strong>${lead.name || '—'}</strong></td>
+                <td><strong>${lead.name || '—'}</strong> ${recIcon}</td>
                 <td><small>${lead.phone || ''}</small></td>
                 <td><small>${lead.project || '—'}</small></td>
+                <td>${rdvDisplay}</td>
+                <td>${notesDisplay}</td>
+                <td>${scoreBadge}</td>
                 <td>
                     <select class="status-select status-${statusClass}" onchange="updateLeadStatus('${lead.id}', this.value)">
                         <option value="Nouveau" ${lead.status === 'Nouveau' ? 'selected' : ''}>Nouveau</option>
@@ -343,12 +380,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
                 <td>
                     <div style="display:flex; gap:5px;">
+                        <button class="btn ghost btn-small call-lead-btn" title="Appeler ce client" style="color:var(--success);"><i class="fas fa-phone"></i></button>
                         <button class="btn ghost btn-small detail-btn" title="Voir détails"><i class="fas fa-eye"></i></button>
                         <button class="btn ghost btn-small copy-lead-btn" title="Copier infos"><i class="fas fa-copy"></i></button>
                         <button class="btn ghost btn-small delete-lead-btn" style="color:var(--error)" title="Supprimer"><i class="fas fa-trash"></i></button>
                     </div>
                 </td>
             `;
+            tr.querySelector('.call-lead-btn').onclick = () => callLead(lead.phone, lead.name);
             tr.querySelector('.detail-btn').onclick = () => showLeadDetails(lead);
             tr.querySelector('.copy-lead-btn').onclick = () => {
                 const text = `Lead: ${lead.name}\nTél: ${lead.phone}\nProjet: ${lead.project}\nNotes: ${lead.details}`;
@@ -396,8 +435,90 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('detail-email').textContent = lead.email || 'Non fourni';
         document.getElementById('detail-project').textContent = lead.project || '—';
         document.getElementById('detail-notes').textContent = lead.details || '—';
-        document.getElementById('detail-appt').textContent = `${lead.date || ''} ${lead.time || ''}` || 'Non spécifié';
+        document.getElementById('detail-appt').textContent = `${lead.date || ''} ${lead.time || ''}`.trim() || 'Non spécifié';
+
+        // ── Quality Score ──
+        const score = computeCallQualityScore(lead);
+        const scoreColor = score >= 80 ? 'var(--success)' : score >= 50 ? 'var(--warning, #f59e0b)' : 'var(--error)';
+        let qualityEl = document.getElementById('detail-quality');
+        if (qualityEl) {
+            qualityEl.innerHTML = `
+                <div style="display:flex;align-items:center;gap:0.75rem;margin-top:0.5rem;">
+                    <div style="flex:1;height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden;">
+                        <div style="width:${score}%;height:100%;background:${scoreColor};border-radius:4px;transition:width 0.6s ease;"></div>
+                    </div>
+                    <span style="font-weight:800;color:${scoreColor};font-size:0.9rem;">${score}%</span>
+                </div>
+                ${lead.call_outcome ? `<small style="color:var(--text-muted);">${formatCallOutcome(lead.call_outcome)}</small>` : ''}
+                ${lead.quality_flags && lead.quality_flags !== 'none' ? `<small style="color:var(--error);margin-left:0.5rem;">⚠ ${lead.quality_flags}</small>` : ''}
+            `;
+        }
+
+        // ── Audio Player ──
+        let audioEl = document.getElementById('detail-audio-player');
+        if (audioEl) {
+            if (lead.recording_url) {
+                audioEl.innerHTML = `
+                    <div style="margin-top:1rem;padding:1rem;background:var(--bg-secondary);border-radius:12px;">
+                        <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:0.5rem;">🎙 ENREGISTREMENT DE L'APPEL</div>
+                        <audio controls style="width:100%;border-radius:8px;">
+                            <source src="${lead.recording_url}" type="audio/mpeg">
+                            Votre navigateur ne supporte pas l'audio.
+                        </audio>
+                    </div>
+                `;
+            } else {
+                audioEl.innerHTML = '';
+            }
+        }
+
         if (leadModal) leadModal.classList.add('show');
+    };
+
+    // ── Quality Score Calculator ──
+    function computeCallQualityScore(lead) {
+        let score = 0;
+        if (lead.name && lead.name !== '—' && lead.name.trim()) score += 25;
+        if (lead.phone && lead.phone.trim()) score += 25;
+        if (lead.email && lead.email.trim()) score += 10;
+        if (lead.date && lead.date.trim()) score += 20;
+        if (lead.project && lead.project !== '—' && lead.project.trim()) score += 10;
+        if (lead.call_outcome === 'appointment_booked') score += 10;
+        else if (lead.call_outcome === 'callback_requested') score += 5;
+        return Math.min(score, 100);
+    }
+
+    function formatCallOutcome(outcome) {
+        const map = {
+            appointment_booked: '✅ RDV Pris',
+            callback_requested: '🔁 Rappel demandé',
+            not_interested: '❌ Pas intéressé',
+            incomplete: '⏳ Appel incomplet'
+        };
+        return map[outcome] || outcome;
+    }
+
+    // ── Click-to-Call depuis un lead ──
+    window.callLead = async function (phone, name) {
+        if (!phone || phone === 'Inconnu') return showToast('Numéro invalide', 'error');
+        if (!confirm(`Lancer un appel IA vers ${name || phone} (${phone}) ?`)) return;
+
+        showToast(`📞 Appel lancé vers ${name || phone}...`, 'info');
+        try {
+            const res = await fetch('/api/dashboard/test-call', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone_number: phone })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(`✅ Appel lancé ! ID: ${(data.call_id || 'N/A').toString().substring(0, 8)}`, 'success');
+            } else {
+                showToast(`❌ ${data.error || 'Erreur'}`, 'error');
+            }
+        } catch (err) {
+            showToast('Erreur réseau', 'error');
+        }
     };
 
     async function deleteLead(id) {
@@ -447,6 +568,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!list) return;
 
         const data = [
+            {
+                version: 'v10.0', date: 'Mars 2026', title: '🚀 Agent Uprising Studio Lancé',
+                items: [
+                    'Agent vocal Sophie configuré pour Uprising Studio',
+                    'Qualification de prospects (Mini $250/mo — Premium $450/mo — Sur mesure)',
+                    'CORS autorisé pour uprisingstudio-mtl.framer.website',
+                    'Widget de chat IA intégré pour le site Framer',
+                    'Fix analytics dashboard (comptage agents actifs)'
+                ]
+            },
             { version: 'v9.0', date: 'Févr. 2026', title: 'Refonte Responsive Totale', items: ['Interface mobile-first', 'Séparation des pages stricte', 'Sidebar auto-rétractable', 'Optimisation des performances'] },
             { version: 'v8.5', date: 'Févr. 2026', title: 'Design Glassmorphism Premium', items: ['Nouvelle charte graphique', 'Effets de flou et transparence', 'Iconographie modernisée'] }
         ];
@@ -488,6 +619,30 @@ document.addEventListener('DOMContentLoaded', () => {
     if (callBtn) callBtn.onclick = initiateCall;
     const savePromptBtn = document.getElementById('save-prompt-btn');
     if (savePromptBtn) savePromptBtn.onclick = savePrompt;
+
+    // Delete agent button (in the agent config panel)
+    const deleteAgentBtn = document.getElementById('delete-agent-btn');
+    if (deleteAgentBtn) {
+        deleteAgentBtn.onclick = async () => {
+            if (!activeEnvId) return;
+            const envName = currentConfig?.environments[activeEnvId]?.name || activeEnvId;
+            if (!confirm(`Supprimer l'agent "${envName}" ? Cette action est irréversible.`)) return;
+            try {
+                const res = await fetch(`/api/dashboard/delete-environment/${activeEnvId}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(`Agent "${envName}" supprimé.`, 'success');
+                    if (agentConfigPanel) agentConfigPanel.style.display = 'none';
+                    await fetchConfig();
+                } else {
+                    showToast(data.error || 'Erreur suppression', 'error');
+                }
+            } catch (err) {
+                showToast('Erreur réseau', 'error');
+            }
+        };
+    }
+
     if (closeModalBtn) closeModalBtn.onclick = () => leadModal.classList.remove('show');
     if (modalBookBtn) modalBookBtn.onclick = bookModalLead;
 

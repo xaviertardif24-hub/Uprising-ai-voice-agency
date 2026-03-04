@@ -27,10 +27,10 @@ router.post('/', async (req, res) => {
     } catch (err) {
         logger.error('[Chat Route] Error:', err.message);
 
-        if (err.message.includes('GROQ_API_KEY')) {
+        if (err.message.includes('OPENAI_API_KEY')) {
             return res.status(503).json({
                 error: 'Chat service not configured',
-                details: 'Add GROQ_API_KEY to your .env file. Get a free key at https://console.groq.com'
+                details: 'Add OPENAI_API_KEY to your .env file.'
             });
         }
 
