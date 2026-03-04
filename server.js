@@ -52,6 +52,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // ─── ROUTES ──────────────────────────────────────────────────────────────────
 app.use('/webhook', webhookRoutes);
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
+app.use('/api/chat', require('./routes/chatRoutes'));
 
 // ─── STATIC FILES ────────────────────────────────────────────────────────────
 app.use(express.static('public'));
