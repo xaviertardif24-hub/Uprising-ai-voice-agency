@@ -2,12 +2,51 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
+const { parse: csvParse } = require('csv-parse/sync');
 const config = require('../config/config');
 const { initiateCall: initiateBlandCall } = require('../services/blandService');
 const { initiateDograhCall } = require('../services/dograhService');
 const { registerInboundNumber, listInboundNumbers } = require('../services/inboundService');
 const { scrapeCompanyWebsite, generateAgentPrompt } = require('../services/webScraperService');
 const logger = require('../utils/logger');
+
+// ─── CSV PARSER HELPER ────────────────────────────────────────────────────────
+/**
+ * Parses CSV content using csv-parse for robust handling of quoted fields,
+ * commas inside strings, accents, and newlines inside cells.
+ * @param {string} content
+ * @returns {Array<Object>}
+ */
+const parseLeadsCsv = (content) => {
+    if (!content || !content.trim()) return [];
+    try {
+        const records = csvParse(content, {
+            columns: true,
+            skip_empty_lines: true,
+            relax_column_count: true,
+            trim: true
+        });
+        return records.map(r => ({
+            id: r['ID'] || r['id'] || '',
+            timestamp: r['Date'] || r['date'] || '',
+            business: r['Entreprise'] || r['business'] || '',
+            name: r['Nom'] || r['name'] || '',
+            phone: r['Téléphone'] || r['phone'] || '',
+            email: r['Email'] || r['email'] || '',
+            project: r['Projet'] || r['project'] || '',
+            details: r['Détails'] || r['details'] || '',
+            date: r['Date RV'] || r['date'] || '',
+            time: r['Heure RV'] || r['time'] || '',
+            status: r['Statut'] || r['status'] || 'Nouveau',
+            recording_url: r['Recording URL'] || null,
+            call_outcome: r['Outcome'] || null,
+            quality_flags: r['Quality Flags'] || null
+        }));
+    } catch (err) {
+        logger.error('CSV parse error:', err.message);
+        return [];
+    }
+};
 
 const envConfigPath = path.join(__dirname, '../config/environments.json');
 
@@ -33,6 +72,7 @@ router.post('/active-environment', (req, res) => {
         data.active_environment = active_environment;
         fs.writeFileSync(envConfigPath, JSON.stringify(data, null, 4));
         config.activeEnv = data.environments[active_environment];
+        if (config.invalidateCache) config.invalidateCache();
         logger.info(`Active environment switched to: ${active_environment}`);
         res.json({ success: true, active_environment });
     } catch (err) {
@@ -58,6 +98,7 @@ router.post('/update-environment', (req, res) => {
         if (description !== undefined) data.environments[id].description = description;
 
         fs.writeFileSync(envConfigPath, JSON.stringify(data, null, 4));
+        if (config.invalidateCache) config.invalidateCache();
 
         if (data.active_environment === id) {
             config.activeEnv = data.environments[id];
@@ -114,36 +155,10 @@ router.get('/leads', (req, res) => {
     try {
         if (!fs.existsSync(csvPath)) return res.json([]);
         const content = fs.readFileSync(csvPath, 'utf8');
-        const lines = content.trim().split('\n');
-        if (lines.length <= 1) return res.json([]);
-
-        const leads = lines.slice(1).map(line => {
-            const values = line.match(/(\".*?\"|[^\",\s]+)(?=\s*,|\s*$)/g) || [];
-            const clean = values.map(v => v.replace(/^\"|\"$/g, ''));
-
-            // Format with ID and Status support
-            if (clean.length >= 11) { // Latest format with ID + Status
-                return {
-                    id: clean[0], timestamp: clean[1], business: clean[2], name: clean[3],
-                    phone: clean[4], email: clean[5], project: clean[6],
-                    details: clean[7], date: clean[8], time: clean[9], status: clean[10] || 'Nouveau'
-                };
-            } else if (clean.length >= 10) { // Format with ID but no status
-                return {
-                    id: clean[0], timestamp: clean[1], business: clean[2], name: clean[3],
-                    phone: clean[4], email: clean[5], project: clean[6],
-                    details: clean[7], date: clean[8], time: clean[9], status: 'Nouveau'
-                };
-            } else { // Legacy format
-                return {
-                    id: clean[0], timestamp: clean[0], business: clean[1], name: clean[2],
-                    phone: clean[3], email: clean[4], project: clean[5],
-                    details: clean[6], date: clean[7], time: clean[8], status: 'Nouveau'
-                };
-            }
-        });
+        const leads = parseLeadsCsv(content);
         res.json(leads.reverse());
     } catch (err) {
+        logger.error('Error fetching leads:', err.message);
         res.status(500).json({ error: 'Failed to fetch leads' });
     }
 });
@@ -311,30 +326,25 @@ router.get('/analytics', (req, res) => {
         if (!fs.existsSync(csvPath)) return res.json({ totalLeads: 0, todayLeads: 0, thisWeek: 0, byBusiness: {} });
 
         const content = fs.readFileSync(csvPath, 'utf8');
-        const lines = content.trim().split('\n');
-        if (lines.length <= 1) return res.json({ totalLeads: 0, todayLeads: 0, thisWeek: 0, byBusiness: {} });
+        const leads = parseLeadsCsv(content);
 
-        const leads = lines.slice(1);
-        const today = new Date().toLocaleDateString('fr-CA');
+        if (leads.length === 0) return res.json({ totalLeads: 0, todayLeads: 0, thisWeek: 0, byBusiness: {} });
+
+        const today = new Date().toLocaleDateString('fr-CA'); // YYYY-MM-DD
         const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
         let todayLeads = 0;
         let thisWeek = 0;
         const byBusiness = {};
 
-        leads.forEach(line => {
-            const values = line.match(/(\".*?\"|[^\",\s]+)(?=\s*,|\s*$)/g) || [];
-            if (values.length < 2) return;
-            const clean = values.map(v => v.replace(/^\"|\"$/g, ''));
-
-            // If first column is ID, date is clean[1]. If first is Date, it's clean[0].
-            const dateStr = (clean[0] && clean[0].includes('-')) ? clean[0] : (clean[1] || '');
-            const business = (clean[0] && clean[0].includes('-')) ? clean[1] : (clean[2] || 'N/A');
+        leads.forEach(lead => {
+            const dateStr = lead.timestamp || '';
+            const business = lead.business || 'N/A';
 
             if (dateStr.includes(today)) todayLeads++;
             try {
                 const leadDate = new Date(dateStr);
-                if (leadDate >= weekAgo) thisWeek++;
+                if (!isNaN(leadDate.getTime()) && leadDate >= weekAgo) thisWeek++;
             } catch { }
 
             byBusiness[business] = (byBusiness[business] || 0) + 1;
@@ -347,6 +357,7 @@ router.get('/analytics', (req, res) => {
             byBusiness
         });
     } catch (err) {
+        logger.error('Analytics error:', err.message);
         res.status(500).json({ error: 'Failed to compute analytics' });
     }
 });
@@ -356,6 +367,7 @@ router.put('/leads/:id/status', (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
     const csvPath = path.join(__dirname, '../leads.csv');
+    const CSV_HEADER = 'ID,Date,Entreprise,Nom,Téléphone,Email,Projet,Détails,Date RV,Heure RV,Statut,Recording URL,Outcome,Quality Flags';
 
     if (!status) return res.status(400).json({ error: 'Status is required' });
 
@@ -363,25 +375,22 @@ router.put('/leads/:id/status', (req, res) => {
         if (!fs.existsSync(csvPath)) return res.status(404).json({ error: 'No leads found' });
 
         const content = fs.readFileSync(csvPath, 'utf8');
-        const lines = content.split('\n');
-        const header = lines[0];
+        const leads = parseLeadsCsv(content);
+        const lead = leads.find(l => l.id === id);
 
-        const updatedLines = lines.slice(1).map(line => {
-            if (!line.trim()) return line;
-            const values = line.match(/(\".*?\"|[^\",\s]+)(?=\s*,|\s*$)/g) || [];
-            const cleanId = values[0]?.replace(/^\"|\"$/g, '');
+        if (!lead) return res.status(404).json({ error: 'Lead not found' });
+        lead.status = status;
 
-            if (cleanId === id) {
-                // Keep first 10 values, update/add 11th
-                const newValues = values.slice(0, 10);
-                while (newValues.length < 10) newValues.push('""');
-                newValues[10] = `"${status}"`;
-                return newValues.join(',');
-            }
-            return line;
-        });
+        // Rebuild CSV from parsed objects (safe, no regex needed)
+        const sanitize = (val) => (val || '').toString().replace(/"/g, '""').replace(/\n|\r/g, ' ');
+        const toCsvLine = (l) =>
+            `"${sanitize(l.id)}","${sanitize(l.timestamp)}","${sanitize(l.business)}","${sanitize(l.name)}",` +
+            `"${sanitize(l.phone)}","${sanitize(l.email)}","${sanitize(l.project)}","${sanitize(l.details)}",` +
+            `"${sanitize(l.date)}","${sanitize(l.time)}","${sanitize(l.status)}",` +
+            `"${sanitize(l.recording_url)}","${sanitize(l.call_outcome)}","${sanitize(l.quality_flags)}"`;
 
-        fs.writeFileSync(csvPath, [header, ...updatedLines].join('\n'), 'utf8');
+        const newContent = [CSV_HEADER, ...leads.map(toCsvLine)].join('\n') + '\n';
+        fs.writeFileSync(csvPath, newContent, 'utf8');
         res.json({ success: true });
     } catch (err) {
         logger.error('Error updating lead status:', err.message);
@@ -393,21 +402,26 @@ router.put('/leads/:id/status', (req, res) => {
 router.delete('/leads/:id', (req, res) => {
     const { id } = req.params;
     const csvPath = path.join(__dirname, '../leads.csv');
+    const CSV_HEADER = 'ID,Date,Entreprise,Nom,Téléphone,Email,Projet,Détails,Date RV,Heure RV,Statut,Recording URL,Outcome,Quality Flags';
     try {
         if (!fs.existsSync(csvPath)) return res.status(404).json({ error: 'No leads found' });
 
         const content = fs.readFileSync(csvPath, 'utf8');
-        const lines = content.split('\n');
-        const header = lines[0];
+        const leads = parseLeadsCsv(content);
+        const filtered = leads.filter(l => l.id !== id);
 
-        const filteredLines = lines.slice(1).filter(line => {
-            if (!line.trim()) return false;
-            const values = line.match(/(\".*?\"|[^\",\s]+)(?=\s*,|\s*$)/g) || [];
-            const cleanId = values[0]?.replace(/^\"|\"$/g, '');
-            return cleanId !== id;
-        });
+        if (filtered.length === leads.length) {
+            return res.status(404).json({ error: 'Lead not found' });
+        }
 
-        const newContent = [header, ...filteredLines].join('\n') + (filteredLines.length > 0 ? '' : '');
+        const sanitize = (val) => (val || '').toString().replace(/"/g, '""').replace(/\n|\r/g, ' ');
+        const toCsvLine = (l) =>
+            `"${sanitize(l.id)}","${sanitize(l.timestamp)}","${sanitize(l.business)}","${sanitize(l.name)}",` +
+            `"${sanitize(l.phone)}","${sanitize(l.email)}","${sanitize(l.project)}","${sanitize(l.details)}",` +
+            `"${sanitize(l.date)}","${sanitize(l.time)}","${sanitize(l.status)}",` +
+            `"${sanitize(l.recording_url)}","${sanitize(l.call_outcome)}","${sanitize(l.quality_flags)}"`;
+
+        const newContent = [CSV_HEADER, ...filtered.map(toCsvLine)].join('\n') + '\n';
         fs.writeFileSync(csvPath, newContent, 'utf8');
 
         logger.info(`Lead ${id} deleted`);
@@ -426,7 +440,7 @@ router.get('/system-status', (req, res) => {
             key_preview: config.bland.apiKey ? `***${config.bland.apiKey.slice(-4)}` : 'Non configuré'
         },
         google: {
-            configured: !!config.google.credentials,
+            configured: !!(config.google.credentials || (config.google.calendarId && fs.existsSync(path.resolve(config.google.keyPath)))),
             calendar_id: config.google.calendarId || 'Non configuré'
         },
         twenty: {

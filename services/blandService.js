@@ -6,6 +6,20 @@ const { getActivePrompt } = require('./promptService');
 const BLAND_API_URL = 'https://api.bland.ai/v1';
 
 /**
+ * Determines if a voice ID is an ElevenLabs voice.
+ * Uses explicit voice_provider field first, then falls back to length heuristic.
+ * @param {Object} env
+ * @returns {boolean}
+ */
+const isElevenLabsVoice = (env) => {
+    if (env.voice_provider) {
+        return env.voice_provider === 'elevenlabs';
+    }
+    // Fallback heuristic: ElevenLabs IDs are long alphanumeric strings (>10 chars)
+    return !!(env.voice_id && env.voice_id.length > 10);
+};
+
+/**
  * Updates a Bland AI agent with the current environment's prompt and voice.
  * @param {string} agentId - The ID of the agent to update.
  * @returns {Promise<Object>} - The API response.
@@ -52,53 +66,81 @@ const initiateCall = async (phoneNumber, customVars = {}) => {
     const env = config.activeEnv;
     const prompt = getActivePrompt();
 
-    // Determine a dynamic first sentence based on the business name (Ultra-natural greeting)
-    const firstSentence = `Oui bonjour, ${env.name}, c'est ${env.prompt_template.match(/Tu es (\w+) /)?.[1] || 'la réception'} à l'appareil.`;
+    const firstSentence = env.first_sentence || `Bonjour, ${env.name}, comment puis-je vous aider ?`;
 
     try {
-        // Build webhook URL for post-call data
         const webhookBase = process.env.BLAND_AI_WEBHOOK_URL || `http://localhost:${config.port}/webhook/bland-ai`;
-        const webhookUrl = webhookBase.includes(env.id) ? webhookBase : `${webhookBase.replace(/\/webhook\/bland-ai.*/, '')}/webhook/bland-ai/${env.id}`;
+        const webhookUrl = webhookBase.includes(env.id)
+            ? webhookBase
+            : `${webhookBase.replace(/\/webhook\/bland-ai.*/, '')}/webhook/bland-ai/${env.id}`;
 
-        const response = await axios.post(`${BLAND_API_URL}/calls`, {
+        // ✅ Use explicit voice_provider field for reliable detection
+        const useElevenLabs = isElevenLabsVoice(env);
+        const hasElevenLabsKey = !!config.bland.elevenlabsApiKey;
+
+        const callBody = {
             phone_number: phoneNumber,
             task: prompt,
-            voice: env.voice_id,
+            voice: env.voice_id || 'maya',
             language: 'fr',
             model: 'enhanced',
-            elevenlabs_api_key: config.bland.elevenlabsApiKey,
-            interruption_threshold: 220, // Human-like reaction time (avoid cutting off on background noise)
+            interruption_threshold: 120,
             wait_for_greeting: true,
             first_sentence: firstSentence,
-            temperature: 0.72, // Balanced creativity and strict adherence to role
-            max_duration: 10,
+            temperature: 0.88,
+            max_duration: 15,
             record: true,
             webhook: webhookUrl,
             analysis_schema: {
-                client_name: "string - nom complet du client",
-                client_phone: "string - numéro de téléphone",
-                client_email: "string - email du client",
+                client_name: "string - prénom et nom complet du client",
+                client_phone: "string - numéro de téléphone avec indicatif",
+                client_email: "string - adresse email du client",
                 category: "string - type de projet ou service demandé",
-                details: "string - résumé détaillé du besoin du client",
+                details: "string - résumé détaillé du besoin et contexte du client",
                 appointment_date: "string - date du rendez-vous au format YYYY-MM-DD",
-                appointment_time: "string - heure du rendez-vous au format HH:mm"
+                appointment_time: "string - heure du rendez-vous au format HH:mm",
+                call_outcome: "string - résultat de l'appel: appointment_booked, callback_requested, not_interested, incomplete",
+                quality_flags: "string - problèmes détectés: bad_audio, client_frustrated, incomplete_info, or none"
             },
             request_data: {
                 business_name: env.name,
                 environment: env.id,
                 ...customVars
             }
-        }, {
-            headers: {
-                'authorization': config.bland.apiKey,
-                'Content-Type': 'application/json'
-            }
-        });
+        };
 
-        logger.info(`Call initiated for ${phoneNumber} in environment: ${env.id}`);
+        if (useElevenLabs && hasElevenLabsKey) {
+            callBody.elevenlabs_api_key = config.bland.elevenlabsApiKey;
+        }
+
+        let response;
+        try {
+            response = await axios.post(`${BLAND_API_URL}/calls`, callBody, {
+                headers: { 'authorization': config.bland.apiKey, 'Content-Type': 'application/json' }
+            });
+
+            if (response.data?.status === 'error') {
+                throw new Error(response.data.message || 'Bland AI returned an error');
+            }
+        } catch (voiceErr) {
+            // If ElevenLabs voice failed, retry with native Bland AI French-compatible voice
+            if (useElevenLabs) {
+                logger.warn(`ElevenLabs voice failed (${voiceErr.response?.data?.message || voiceErr.message}). Retrying with native voice 'maya'...`);
+                const fallbackBody = { ...callBody, voice: 'maya' };
+                delete fallbackBody.elevenlabs_api_key;
+                response = await axios.post(`${BLAND_API_URL}/calls`, fallbackBody, {
+                    headers: { 'authorization': config.bland.apiKey, 'Content-Type': 'application/json' }
+                });
+            } else {
+                throw voiceErr;
+            }
+        }
+
+        logger.info(`✅ Call initiated for ${phoneNumber} in environment: ${env.id}`);
         return response.data;
     } catch (err) {
-        logger.error('Error initiating call:', err.response?.data || err.message);
+        const errDetail = err.response?.data || err.message;
+        logger.error('Error initiating call:', JSON.stringify(errDetail));
         throw err;
     }
 };

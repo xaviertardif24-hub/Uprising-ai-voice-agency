@@ -39,7 +39,7 @@ router.post('/bland-ai/:agentId?', async (req, res) => {
             phone: vars.client_phone || data.from || data.to || data.phone_number || 'Inconnu',
             email: vars.client_email || 'Non fourni',
             project: vars.category || vars.projet || 'Non spécifié',
-            details: vars.details || vars.informations || data.summary || 'Appel traité par Sophie AI',
+            details: vars.details || vars.informations || data.summary || 'Appel traité par IA',
             apptDate: vars.appointment_date || vars.preferred_date,
             apptTime: vars.appointment_time || vars.preferred_time,
             businessName: env?.name || 'Uprising AI',
@@ -49,7 +49,9 @@ router.post('/bland-ai/:agentId?', async (req, res) => {
             callId: data.call_id || null,
             duration: data.call_length || null,
             recording_url: data.recording_url || null,
-            transcript: data.concatenated_transcript || ''
+            transcript: data.concatenated_transcript || '',
+            call_outcome: vars.call_outcome || null,
+            quality_flags: vars.quality_flags || null
         };
 
         // Extraction spécifique garage

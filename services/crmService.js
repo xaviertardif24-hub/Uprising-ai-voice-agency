@@ -1,21 +1,20 @@
-const axios = require('axios');
 const config = require('../config/config');
 const { logLead: logToCsv, findRecentLead } = require('../utils/csvLogger');
 const logger = require('../utils/logger');
 
 /**
- * Unified CRM Recording Service
- * Records leads to CSV and optional CRM (HubSpot, etc.)
- * @param {Object} leadData 
+ * Unified CRM Recording Service.
+ * Records leads to CSV (always) and Twenty CRM (if configured).
+ * @param {Object} leadData
  */
 const recordLead = async (leadData) => {
-    // 1. Check for duplicates (within 5 minutes for the same phone number)
-    if (findRecentLead(leadData.phone)) {
-        logger.info(`Duplicate lead detected for ${leadData.phone}. Skipping...`);
+    // ✅ Deduplicate by call_id (most reliable) AND by phone number (within 10 min)
+    if (findRecentLead(leadData.phone, leadData.callId)) {
+        logger.info(`Duplicate lead detected (phone: ${leadData.phone} | call_id: ${leadData.callId}). Skipping.`);
         return;
     }
 
-    // 2. Always log to local CSV
+    // 1. Always log to local CSV
     try {
         logToCsv(leadData);
         logger.info(`Lead for ${leadData.name} recorded in CSV`);
@@ -29,11 +28,9 @@ const recordLead = async (leadData) => {
             const { createTwentyLead } = require('./twentyService');
             await createTwentyLead(leadData);
         } catch (err) {
-            logger.warn('Failed to sync with Twenty CRM');
+            logger.warn('Failed to sync with Twenty CRM:', err.message);
         }
     }
-
-    // 3. n8n / custom automation fallback could go here
 };
 
 module.exports = { recordLead };

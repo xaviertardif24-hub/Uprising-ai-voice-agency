@@ -3,23 +3,48 @@ const path = require('path');
 require('dotenv').config();
 
 const envConfigPath = path.join(__dirname, 'environments.json');
-let environments = {};
-let activeEnv = 'renovation';
 
-try {
-    if (fs.existsSync(envConfigPath)) {
-        const data = JSON.parse(fs.readFileSync(envConfigPath, 'utf8'));
-        environments = data.environments;
-        activeEnv = data.active_environment || 'renovation';
+// ─── ENVIRONMENTS CACHE ───────────────────────────────────────────────────────
+let _envCache = null;
+let _envCacheTime = 0;
+const ENV_CACHE_TTL = 5000; // 5 seconds TTL
+
+const loadEnvironments = () => {
+    const now = Date.now();
+    if (_envCache && (now - _envCacheTime) < ENV_CACHE_TTL) {
+        return _envCache;
     }
-} catch (err) {
-    console.error('Error loading environments.json:', err.message);
+    try {
+        if (fs.existsSync(envConfigPath)) {
+            _envCache = JSON.parse(fs.readFileSync(envConfigPath, 'utf8'));
+            _envCacheTime = now;
+            return _envCache;
+        }
+    } catch (err) {
+        console.error('Error loading environments.json:', err.message);
+    }
+    return _envCache || { environments: {}, active_environment: 'renovation' };
+};
+
+const invalidateCache = () => {
+    _envCache = null;
+    _envCacheTime = 0;
+};
+
+// Initial load
+const initialData = loadEnvironments();
+let activeEnvId = initialData.active_environment || 'renovation';
+
+// ─── SECURITY CHECK ───────────────────────────────────────────────────────────
+if (!process.env.BLAND_AI_WEBHOOK_SECRET) {
+    console.warn('[⚠️ SECURITY] BLAND_AI_WEBHOOK_SECRET is not set in .env. Webhook endpoints are unprotected!');
 }
 
 const config = {
     port: process.env.PORT || 3000,
-    voiceProvider: process.env.VOICE_PROVIDER || 'bland', // 'bland' or 'dograh'
-    webhookSecret: process.env.BLAND_AI_WEBHOOK_SECRET || 'sophie-secure-2024',
+    voiceProvider: process.env.VOICE_PROVIDER || 'bland',
+    // No default secret — must be explicitly set via env var
+    webhookSecret: process.env.BLAND_AI_WEBHOOK_SECRET || null,
     google: {
         calendarId: process.env.CALENDAR_ID,
         credentials: process.env.GOOGLE_CREDENTIALS_JSON ? JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON) : null,
@@ -43,15 +68,18 @@ const config = {
         twentyApiKey: process.env.TWENTY_API_KEY,
         twentyUrl: process.env.TWENTY_API_URL || 'https://api.twenty.com/v1'
     },
-    activeEnv: environments[activeEnv] || environments['renovation'],
+    get activeEnv() {
+        const data = loadEnvironments();
+        return data.environments[activeEnvId] || data.environments[Object.keys(data.environments)[0]];
+    },
+    set activeEnv(env) {
+        activeEnvId = env.id;
+    },
     getEnvironment: (id) => {
-        try {
-            const data = JSON.parse(fs.readFileSync(envConfigPath, 'utf8'));
-            return data.environments[id];
-        } catch (err) {
-            return environments[id]; // Fallback to initial load if error
-        }
-    }
+        const data = loadEnvironments();
+        return data.environments[id] || null;
+    },
+    invalidateCache
 };
 
 module.exports = config;

@@ -30,72 +30,49 @@ const initCalendar = () => {
 };
 
 /**
- * Validates and formats appointment date/time for America/Toronto (Quebec/Montreal)
- * @param {string} dateStr - YYYY-MM-DD
- * @param {string} timeStr - HH:mm
- * @returns {Object|null} { start, end } or null if invalid
+ * Adds a calendar event for a booked appointment.
+ * Always uses America/Toronto timezone with local date strings (no UTC conversion bug).
+ * @param {Object} leadData
  */
-const validateAndFormatAppointment = (dateStr, timeStr) => {
-    if (!dateStr || !timeStr) return null;
-
-    try {
-        // America/Toronto offset is either -05:00 (EST) or -04:00 (EDT)
-        // For simplicity and robustness, we use a fixed offset of -05:00 or -04:00 
-        // Or better, let Google handle the timezone by providing the timeZone field.
-
-        // We construct the ISO string: YYYY-MM-DDTHH:mm:00
-        const startStr = `${dateStr}T${timeStr}:00`;
-        const startDate = new Date(startStr);
-
-        // Validation: Must be in the future
-        if (startDate < new Date()) {
-            logger.warn(`Appointment date ${startStr} is in the past. Skipping.`);
-            return null;
-        }
-
-        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // +1 hour
-
-        return {
-            start: {
-                dateTime: startDate.toISOString().split('.')[0] + 'Z', // Placeholder, we will use timeZone
-                timeZone: 'America/Toronto'
-            },
-            end: {
-                dateTime: endDate.toISOString().split('.')[0] + 'Z',
-                timeZone: 'America/Toronto'
-            }
-        };
-    } catch (err) {
-        logger.error('Error validating appointment date:', err.message);
-        return null;
-    }
-};
-
 const addCalendarEvent = async (leadData) => {
     if (!calendar) initCalendar();
 
     const { name, phone, email, project, details, apptDate, apptTime } = leadData;
 
+    // Skip if no valid date/time
+    if (!apptDate || !apptTime) {
+        logger.info('No appointment data found. Skipping calendar event.');
+        return;
+    }
+
+    // Validate format
+    const dateTimeStr = `${apptDate}T${apptTime}:00`;
+    const startDate = new Date(dateTimeStr);
+    if (isNaN(startDate.getTime())) {
+        logger.warn(`Invalid appointment date/time format: "${dateTimeStr}". Skipping.`);
+        return;
+    }
+
+    // Skip past appointments
+    if (startDate < new Date()) {
+        logger.warn(`Appointment date ${apptDate} ${apptTime} is in the past. Skipping.`);
+        return;
+    }
+
     try {
         const businessName = leadData.businessName || 'Uprising AI';
 
-        // Construct dates for validation
-        const start = new Date(`${apptDate}T${apptTime}:00`);
-        if (isNaN(start.getTime())) {
-            logger.info('Invalid appointment data. Skipping calendar event.');
-            return;
-        }
-
-        if (start < new Date()) {
-            logger.warn(`Appointment date ${apptDate} ${apptTime} is in the past. Skipping.`);
-            return;
-        }
-
-        const end = new Date(start.getTime() + 60 * 60 * 1000); // Default 1 hour duration
+        // Calculate end time (+1 hour) using local time components to avoid timezone drift
+        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+        const endHour = endDate.getHours().toString().padStart(2, '0');
+        const endMin = endDate.getMinutes().toString().padStart(2, '0');
+        const endDateStr = endDate.toISOString().split('T')[0];
+        const endTimeStr = `${endDateStr}T${endHour}:${endMin}:00`;
 
         const resource = {
             summary: `📅 RDV ${businessName} - ${name}`,
-            description: `DÉTAILS DU RENDEZ-VOUS\n` +
+            description:
+                `DÉTAILS DU RENDEZ-VOUS\n` +
                 `--------------------------\n` +
                 `👤 Client : ${name}\n` +
                 `📞 Téléphone : ${phone}\n` +
@@ -103,12 +80,13 @@ const addCalendarEvent = async (leadData) => {
                 `🏗️ Projet : ${project}\n` +
                 `📝 Notes : ${details}\n\n` +
                 `Généré automatiquement par Sophie AI.`,
+            // ✅ FIX: Use raw local date strings + timeZone (NOT .toISOString() which converts to UTC)
             start: {
                 dateTime: `${apptDate}T${apptTime}:00`,
                 timeZone: 'America/Toronto'
             },
             end: {
-                dateTime: `${end.toISOString().split('T')[0]}T${end.getHours().toString().padStart(2, '0')}:${end.getMinutes().toString().padStart(2, '0')}:00`,
+                dateTime: endTimeStr,
                 timeZone: 'America/Toronto'
             },
             reminders: {
@@ -129,7 +107,8 @@ const addCalendarEvent = async (leadData) => {
             resource: resource,
             sendUpdates: 'all',
         });
-        logger.info(`Calendar event created for ${name} at ${apptDate} ${apptTime} (America/Toronto)`);
+
+        logger.info(`✅ Calendar event created for ${name} at ${apptDate} ${apptTime} (America/Toronto)`);
     } catch (err) {
         logger.error('Error creating calendar event:', err.message);
     }
