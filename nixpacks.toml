@@ -1,5 +1,2 @@
 [variables]
 NODE_VERSION = "20"
-
-[phases.build]
-cmds = ["npm ci --prefer-offline"]
