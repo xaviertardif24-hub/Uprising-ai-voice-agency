@@ -1,7 +1,7 @@
-const Groq = require('groq-sdk');
+const OpenAI = require('openai');
 const logger = require('../utils/logger');
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const UPRISING_SYSTEM_PROMPT = `Tu es l'assistant virtuel d'Uprising Studio, une agence de design et de systèmes digitaux basée à Montréal. Tu t'appelles **Sophie** et tu représentes l'agence sur le site web.
 
@@ -45,33 +45,33 @@ Uprising Studio aide les compagnies ambitieuses à remplacer leurs sites vitrine
 Ne mets JAMAIS de liens autres que la page contact. Ne fais JAMAIS de promesses de prix non listées. Reste toujours dans le contexte d'Uprising Studio.`;
 
 /**
- * Sends a message to Groq (Llama 3.3) with Uprising Studio context.
+ * Sends a message to OpenAI (gpt-4o-mini) with Uprising Studio context.
  * @param {Array} messages - Conversation history [{role, content}]
  * @returns {Promise<string>} - AI response
  */
 const chat = async (messages) => {
-    if (!process.env.GROQ_API_KEY) {
-        throw new Error('GROQ_API_KEY is not configured. Add it to your .env file. Get a free key at https://console.groq.com');
+    if (!process.env.OPENAI_API_KEY) {
+        throw new Error('OPENAI_API_KEY is not configured. Add it to your .env file.');
     }
 
     try {
-        const completion = await groq.chat.completions.create({
+        const completion = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
             messages: [
                 { role: 'system', content: UPRISING_SYSTEM_PROMPT },
-                ...messages.slice(-10) // Keep last 10 messages for context (avoid token overflow)
+                ...messages.slice(-10) // Keep last 10 messages for context
             ],
-            model: 'llama-3.3-70b-versatile',
             temperature: 0.7,
-            max_tokens: 300, // Keep responses concise for a chat widget
-            top_p: 1,
-            stream: false
+            max_tokens: 300 // Keep responses concise for a chat widget
         });
 
-        const response = completion.choices[0]?.message?.content || 'Désolée, je n\'ai pas pu traiter votre demande. Essayez de contacter Kael directement.';
-        logger.info(`[Chat] Groq response generated (${completion.usage?.total_tokens || 0} tokens)`);
+        const response = completion.choices[0]?.message?.content
+            || 'Désolée, je n\'ai pas pu traiter votre demande. Essayez de contacter Kael directement.';
+
+        logger.info(`[Chat] OpenAI response generated (${completion.usage?.total_tokens || 0} tokens)`);
         return response;
     } catch (err) {
-        logger.error('[Chat] Groq API error:', err.message);
+        logger.error('[Chat] OpenAI API error:', err.message);
         throw err;
     }
 };
