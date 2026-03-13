@@ -4,6 +4,15 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const config = require('./config/config');
 const logger = require('./utils/logger');
+const Sentry = require("@sentry/node");
+
+// ─── SENTRY INITIALIZATION ───────────────────────────────────────────────────
+Sentry.init({
+    dsn: process.env.SENTRY_DSN || "",
+    tracesSampleRate: 1.0,
+    environment: process.env.NODE_ENV || 'development'
+});
+
 const webhookRoutes = require('./routes/webhookRoutes');
 
 const app = express();
@@ -58,6 +67,8 @@ app.use('/api/chat', require('./routes/chatRoutes'));
 app.use(express.static('public'));
 
 // ─── ERROR HANDLING ──────────────────────────────────────────────────────────
+Sentry.setupExpressErrorHandler(app);
+
 app.use((err, req, res, next) => {
     logger.error('Unhandled Error:', err.stack);
     res.status(500).json({ error: 'Internal server error', message: err.message });

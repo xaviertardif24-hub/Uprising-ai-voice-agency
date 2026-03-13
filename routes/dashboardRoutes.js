@@ -206,6 +206,30 @@ router.post('/add-environment', (req, res) => {
     }
 });
 
+// POST clone environment
+router.post('/clone-agent/:id', (req, res) => {
+    const { id } = req.params;
+    try {
+        const data = JSON.parse(fs.readFileSync(envConfigPath, 'utf8'));
+        const original = data.environments[id];
+        if (!original) return res.status(404).json({ error: 'Agent not found' });
+
+        const newId = `${id}-copy-${Date.now().toString().slice(-4)}`;
+        const clone = JSON.parse(JSON.stringify(original)); // Deep copy
+        clone.id = newId;
+        clone.name = `${original.name} (Copie)`;
+
+        data.environments[newId] = clone;
+        fs.writeFileSync(envConfigPath, JSON.stringify(data, null, 4));
+        
+        logger.info(`Agent ${id} duplicated as ${newId}`);
+        res.json({ success: true, newId });
+    } catch (err) {
+        logger.error('Error cloning agent:', err.message);
+        res.status(500).json({ error: 'Failed to clone agent' });
+    }
+});
+
 // DELETE environment
 router.delete('/delete-environment/:id', (req, res) => {
     const { id } = req.params;
@@ -335,12 +359,15 @@ router.get('/analytics', (req, res) => {
 
         let todayLeads = 0;
         let thisWeek = 0;
+        let rdvLeads = 0;
         const byBusiness = {};
 
         leads.forEach(lead => {
             const dateStr = lead.timestamp || '';
             const business = lead.business || 'N/A';
 
+            if (lead.status === 'RDV') rdvLeads++;
+            
             if (dateStr.includes(today)) todayLeads++;
             try {
                 const leadDate = new Date(dateStr);
@@ -354,6 +381,7 @@ router.get('/analytics', (req, res) => {
             totalLeads: leads.length,
             todayLeads,
             thisWeek,
+            conversionRate: leads.length > 0 ? Math.round((rdvLeads / leads.length) * 100) : 0,
             byBusiness
         });
     } catch (err) {

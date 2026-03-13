@@ -59,11 +59,11 @@ const registerInboundNumber = async (phoneNumber, agentId) => {
             language: 'fr',
             model: 'enhanced',
             webhook: webhookUrl,
-            first_sentence: `Bonjour ! Vous êtes bien chez ${env?.name || 'Uprising AI'}. Comment puis-je vous aider ?`,
-            interruption_threshold: 120,
-            max_duration: 15,
+            first_sentence: env?.first_sentence || `Bonjour ! Vous êtes bien chez ${env?.name || 'Uprising AI'}. Comment puis-je vous aider ?`,
+            interruption_threshold: 120,   // Timing naturel de conversation
+            max_duration: 15,              // 15 minutes pour les appels entrants aussi
             record: true,
-            temperature: 0.8
+            temperature: 0.88              // Spontanéité maximale
         }, {
             headers: {
                 'authorization': config.bland.apiKey,

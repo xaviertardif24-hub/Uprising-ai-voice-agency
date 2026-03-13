@@ -7,6 +7,7 @@ const { notifyOwner, notifyClient } = require('../services/smsService');
 const { addCalendarEvent } = require('../services/calendarService');
 const { sendOwnerEmail } = require('../services/emailService');
 const { processInboundCall } = require('../services/inboundService');
+const Sentry = require("@sentry/node");
 
 /**
  * Middleware-like helper to verify webhook secret.
@@ -29,6 +30,10 @@ router.post('/bland-ai/:agentId?', async (req, res) => {
     const { agentId } = req.params;
     const direction = data.inbound ? 'inbound' : 'outbound';
     logger.info(`Webhook received from Bland AI (Agent: ${agentId || 'default'}, Direction: ${direction})`);
+    
+    // Sentry Tagging
+    Sentry.setTag("agent_id", agentId || "default");
+    Sentry.setTag("call_direction", direction);
 
     try {
         const vars = data.variables || {};

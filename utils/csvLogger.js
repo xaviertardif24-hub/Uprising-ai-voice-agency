@@ -13,7 +13,8 @@ const logLead = (leadData) => {
     } = leadData;
 
     const dateStr = new Date().toISOString();
-    const id = Date.now() + Math.random().toString(36).substr(2, 5);
+    // ✅ Use callId if provided (for exact deduplication), otherwise generate random
+    const id = leadData.callId || (Date.now() + Math.random().toString(36).substr(2, 5));
 
     // Sanitize fields (prevent CSV injection and newlines inside cells)
     const sanitize = (val) => (val || '').toString().replace(/"/g, '""').replace(/\n|\r/g, ' ');

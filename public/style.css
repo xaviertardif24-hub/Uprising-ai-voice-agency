@@ -5,34 +5,34 @@
 :root {
     --accent: #6366f1;
     --accent-dark: #4338ca;
-    --accent-light: #eef2ff;
-    --accent-glow: rgba(99, 102, 241, 0.25);
+    --accent-light: rgba(99, 102, 241, 0.18);
+    --accent-glow: rgba(99, 102, 241, 0.35);
     --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-    --bg-main: #fcfdff;
-    --bg-card: rgba(255, 255, 255, 0.9);
-    --bg-secondary: #f8fafc;
+    --bg-main: #0b0f1a;
+    --bg-card: rgba(20, 27, 45, 0.95);
+    --bg-secondary: #131929;
     --success: #10b981;
-    --success-bg: #ecfdf5;
+    --success-bg: rgba(16, 185, 129, 0.15);
     --error: #ef4444;
-    --error-bg: #fef2f2;
+    --error-bg: rgba(239, 68, 68, 0.15);
     --warning: #f59e0b;
-    --warning-bg: #fffbeb;
-    --text-primary: #0f172a;
-    --text-secondary: #334155;
+    --warning-bg: rgba(245, 158, 11, 0.15);
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
     --text-muted: #64748b;
-    --border: rgba(226, 232, 240, 0.8);
-    --border-hover: #cbd5e1;
+    --border: rgba(99, 118, 160, 0.18);
+    --border-hover: #475569;
     --radius-sm: 10px;
     --radius-md: 14px;
     --radius-lg: 20px;
     --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     --top-bar-height: 72px;
     --sidebar-width: 280px;
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.06);
-    --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.1);
-    --glass-bg: rgba(255, 255, 255, 0.75);
-    --glass-border: rgba(255, 255, 255, 0.4);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.5);
+    --glass-bg: rgba(11, 15, 26, 0.85);
+    --glass-border: rgba(255, 255, 255, 0.07);
 }
 
 * {
@@ -482,7 +482,7 @@ input:focus,
 textarea:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 4px var(--accent-glow);
-    background: white;
+    background: var(--bg-secondary);
 }
 
 /* ═══════ PIPELINE ═══════ */
@@ -637,7 +637,7 @@ textarea:focus {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: white;
+    background: var(--bg-secondary);
     padding: 4px 12px;
     border-radius: 20px;
     font-size: 0.85rem;
@@ -674,7 +674,7 @@ table {
     width: 100%;
     border-collapse: collapse;
     min-width: 700px;
-    background: white;
+    background: var(--bg-card);
 }
 
 th {
@@ -766,7 +766,7 @@ tr:hover td {
 }
 
 .toast {
-    background: white;
+    background: var(--bg-card);
     padding: 1rem 1.5rem;
     border-radius: 12px;
     box-shadow: var(--shadow-lg);
@@ -833,7 +833,8 @@ tr:hover td {
     border-radius: 8px;
     border: 1px solid var(--border);
     cursor: pointer;
-    background: white;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
 }
 
 /* ═══════ SETTINGS ═══════ */

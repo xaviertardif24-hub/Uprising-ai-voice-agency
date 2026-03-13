@@ -176,6 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('stat-total-val').textContent = result.totalLeads || 0;
                 document.getElementById('stat-today-val').textContent = result.todayLeads || 0;
                 document.getElementById('stat-week-val').textContent = result.thisWeek || 0;
+                document.getElementById('stat-conversion-val').textContent = (result.conversionRate || 0) + '%';
                 // Count agents from currentConfig
                 const agentCount = currentConfig ? Object.keys(currentConfig.environments || {}).length : 0;
                 document.getElementById('stat-agents-val').textContent = agentCount;
@@ -254,8 +255,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="action-info">
                     <h3>${env.name}</h3>
                     <p>${env.description || 'Agent actif'}</p>
-                    <div style="font-size:0.7rem; margin-top:5px; font-weight:800; color:${isActive ? 'var(--accent)' : 'var(--text-muted)'};">
-                        ${isActive ? '● ACTIF' : '○ INACTIF'}
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
+                        <div style="font-size:0.7rem; font-weight:800; color:${isActive ? 'var(--accent)' : 'var(--text-muted)'};">
+                            ${isActive ? '● ACTIF' : '○ INACTIF'}
+                        </div>
+                        <button class="btn ghost btn-small" onclick="event.stopPropagation(); cloneAgent('${key}')" title="Dupliquer l'agent">
+                            <i class="fas fa-copy"></i>
+                        </button>
                     </div>
                 </div>
             `;
@@ -263,6 +269,21 @@ document.addEventListener('DOMContentLoaded', () => {
             agentsGrid.appendChild(card);
         });
     }
+
+    window.cloneAgent = async function (id) {
+        try {
+            const res = await fetch(`/api/dashboard/clone-agent/${id}`, { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                showToast('Agent dupliqué avec succès', 'success');
+                await fetchConfig(); // Refresh lists
+            } else {
+                showToast(data.error || 'Erreur lors de la duplication', 'error');
+            }
+        } catch (err) {
+            showToast('Erreur réseau', 'error');
+        }
+    };
 
     async function selectAgent(id) {
         if (id !== activeEnvId) {

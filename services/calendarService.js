@@ -64,10 +64,12 @@ const addCalendarEvent = async (leadData) => {
 
         // Calculate end time (+1 hour) using local time components to avoid timezone drift
         const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+        const endYear = endDate.getFullYear();
+        const endMonth = (endDate.getMonth() + 1).toString().padStart(2, '0');
+        const endDay = endDate.getDate().toString().padStart(2, '0');
         const endHour = endDate.getHours().toString().padStart(2, '0');
         const endMin = endDate.getMinutes().toString().padStart(2, '0');
-        const endDateStr = endDate.toISOString().split('T')[0];
-        const endTimeStr = `${endDateStr}T${endHour}:${endMin}:00`;
+        const endTimeStr = `${endYear}-${endMonth}-${endDay}T${endHour}:${endMin}:00`;
 
         const resource = {
             summary: `📅 RDV ${businessName} - ${name}`,
