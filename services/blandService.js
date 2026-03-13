@@ -40,7 +40,7 @@ const updateAgentForActiveEnv = async (agentId) => {
             language: 'fr',
             model: 'enhanced',
             elevenlabs_api_key: config.bland.elevenlabsApiKey,
-            interruption_threshold: 150
+            interruption_threshold: env.interruption_threshold || 300
         }, {
             headers: {
                 'authorization': config.bland.apiKey,
@@ -84,7 +84,7 @@ const initiateCall = async (phoneNumber, customVars = {}) => {
             voice: env.voice_id || 'maya',
             language: 'fr',
             model: 'enhanced',
-            interruption_threshold: 120,
+            interruption_threshold: env.interruption_threshold || 300,
             wait_for_greeting: true,
             first_sentence: firstSentence,
             temperature: 0.88,
